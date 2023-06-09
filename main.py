@@ -26,7 +26,10 @@ def ci(
     balance = initial_investment
     balance_after_each_contribution = [balance]
     # convert annual interest rate to interest rate per contribution time interval (+ 1)
-    r = (1 + annual_interest_rate) ** (1 / contributions_per_year)
+    if contributions_per_year > 0:
+        r = (1 + annual_interest_rate) ** (1 / contributions_per_year)
+    else:
+        r = annual_interest_rate
     for _ in range(years):
         for _ in range(contributions_per_year):
             # grow until next contribution
@@ -80,7 +83,8 @@ def test():
         contributions_per_year=12,
         years=5,
     )
-    assert abs(balance[0] - 12_254.47) < 0.01, "Compound interest is not correct."
+    assert abs(
+        balance[0] - 12_254.47) < 0.01, "Compound interest is not correct."
 
     months = rep(
         loan_balance=10_000,
@@ -100,7 +104,8 @@ def etf():
 
     x_axis = [x for x in range(years + 1)]
     # dictionary to print a table in the end
-    t_dict = {"year": list(), "rate": list(), "contribution": list(), "balance": list()}
+    t_dict = {"year": list(), "rate": list(),
+              "contribution": list(), "balance": list()}
     for rate in interest_rates:
         for contribution in regular_contributions:
             y_axis = ci(
@@ -123,7 +128,8 @@ def etf():
             t_dict["balance"].extend(y_axis)
 
             # for plot
-            plt.plot(x_axis, y_axis, label=f"rate = {rate}, contr. = {contribution}")
+            plt.plot(x_axis, y_axis,
+                     label=f"rate = {rate}, contr. = {contribution}")
 
     # for table
     with open("etf.txt", "w", encoding="utf8") as f:
@@ -147,7 +153,8 @@ def house():
     installments_per_year = 12
 
     # dictionary to print a table in the end
-    t_dict = {"year": list(), "rate": list(), "installment": list(), "owed": list()}
+    t_dict = {"year": list(), "rate": list(),
+              "installment": list(), "owed": list()}
     for rate in interest_rates:
         for installment in regular_installments:
             y_axis = rep(
@@ -171,7 +178,8 @@ def house():
             t_dict["owed"].extend(y_axis)
 
             # for plot
-            plt.plot(x_axis, y_axis, label=f"rate = {rate}, inst. = {installment}")
+            plt.plot(x_axis, y_axis,
+                     label=f"rate = {rate}, inst. = {installment}")
 
     # for table
     with open("house.txt", "w", encoding="utf8") as f:
@@ -188,9 +196,127 @@ def house():
     plt.close()
 
 
+def func1():
+    interest_rates = [0.05, 0.06, 0.065, 0.07, 0.075]
+    initial_investment = 100_000
+    regular_contributions = [2_000, 2_500, 3_000]
+    contributions_per_year = 12
+    years = 40
+    filename = 'etf_10k'
+
+    x_axis = [x for x in range(years + 1)]
+    # dictionary to print a table in the end
+    t_dict = {"year": list(), "rate": list(),
+              "contribution": list(), "balance": list()}
+
+    fig, ax = plt.subplots(2, 1)
+    for rate in interest_rates:
+        for contribution in regular_contributions:
+            y_axis = ci(
+                initial_investment=initial_investment,
+                annual_interest_rate=rate,
+                regular_contribution=contribution,
+                contributions_per_year=contributions_per_year,
+                years=years,
+            )[1]
+
+            # only the initial investment and the 12th month of every year
+            y_axis = [y_axis[0], *y_axis[12::12]]
+            # convert to k€
+            y_axis = [y / 1e3 for y in y_axis]
+
+            # for table
+            t_dict["year"].extend(x_axis)
+            t_dict["rate"].extend([rate] * (years + 1))
+            t_dict["contribution"].extend([contribution] * (years + 1))
+            t_dict["balance"].extend(y_axis)
+
+            # for plot
+            ax[0].plot(x_axis[:25], y_axis[:25],
+                       label=f"r = {rate*100:.1f}%, c = {contribution/1e3:.1f}k€")
+            ax[1].plot(x_axis[25:], y_axis[25:],
+                       label=f"r = {rate*100:.1f}%, c = {contribution/1e3:.1f}k€")
+
+    # for table
+    with open(filename + ".txt", "w", encoding="utf8") as f:
+        df = pd.DataFrame(t_dict)
+        table = tabulate(df, headers="keys", tablefmt="psql", showindex=False)
+        f.write(table)
+
+    fig.suptitle("ETF")
+    ax[0].set(ylabel="k€")
+    # ax[0].set_yscale('log')
+    ax[0].grid()
+    ax[1].legend(bbox_to_anchor=(1.04, 0), loc="lower left")
+    ax[1].set(xlabel="years", ylabel="k€")
+    ax[1].grid()
+    # fig.tight_layout()
+    fig.savefig(filename + ".png", bbox_inches='tight')
+    plt.close()
+
+
+def func2():
+    interest_rates = [0.02, 0.03, 0.04, 0.05, 0.08, 0.1]
+    initial_investments = [500_000, 650_000, 800_000]
+    regular_contribution = 0
+    contributions_per_year = 1
+    years = 40
+    filename = 'house_growth'
+
+    x_axis = [x for x in range(years + 1)]
+    # dictionary to print a table in the end
+    t_dict = {"year": list(), "rate": list(),
+              "initial_investment": list(), "balance": list()}
+
+    fig, ax = plt.subplots(2, 1)
+    for rate in interest_rates:
+        for initial_investment in initial_investments:
+            y_axis = ci(
+                initial_investment=initial_investment,
+                annual_interest_rate=rate,
+                regular_contribution=regular_contribution,
+                contributions_per_year=contributions_per_year,
+                years=years,
+            )[1]
+
+            # convert to k€
+            y_axis = [y / 1e3 for y in y_axis]
+
+            # for table
+            t_dict["year"].extend(x_axis)
+            t_dict["rate"].extend([rate] * (years + 1))
+            t_dict["initial_investment"].extend([initial_investment] * (years + 1))
+            t_dict["balance"].extend(y_axis)
+
+            # for plot
+            ax[0].plot(x_axis[:25], y_axis[:25],
+                       label=f"r = {rate*100:.1f}%, p = {initial_investment/1e3:.0f}k€")
+            ax[1].plot(x_axis[25:], y_axis[25:],
+                       label=f"r = {rate*100:.1f}%, p = {initial_investment/1e3:.0f}k€")
+
+    # for table
+    with open(filename + ".txt", "w", encoding="utf8") as f:
+        df = pd.DataFrame(t_dict)
+        table = tabulate(df, headers="keys", tablefmt="psql", showindex=False)
+        f.write(table)
+
+    fig.suptitle("house")
+    ax[0].set(ylabel="k€")
+    # ax[0].set_yscale('log')
+    ax[0].grid()
+    ax[1].legend(bbox_to_anchor=(1.04, 0), loc="lower left")
+    ax[1].set(xlabel="years", ylabel="k€")
+    ax[1].grid()
+    # fig.tight_layout()
+    fig.savefig(filename + ".png", bbox_inches='tight')
+    plt.close()
+
+
 def main():
-    etf()
-    house()
+    # etf()
+    # house()
+    func1()
+    func2()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 from matplotlib import pyplot as plt
+from scipy.optimize import root_scalar
 from numpy.polynomial.polynomial import Polynomial
 
 
@@ -43,12 +44,12 @@ def ci(
 
 
 def ci_formula(
-    initial_balance,
-    annual_interest_rate,
-    regular_contribution,
-    contributions_per_year,
-    years,
-):
+    initial_balance: float,
+    annual_interest_rate: float,
+    regular_contribution: float,
+    contributions_per_year: int,
+    years: int,
+) -> float:
     K_0 = initial_balance
     r = annual_interest_rate
     m = regular_contribution
@@ -87,28 +88,37 @@ def ci_to_rate(
     # potential interest rates
     rates = R_roots[R_roots > 1] - 1
 
-    final_balances = list()
+    # try to find a suitable root
     for r in rates:
-        final_balances.append(
-            ci_formula(
+        K_final = ci_formula(
                 initial_balance=initial_balance,
                 annual_interest_rate=r,
                 regular_contribution=regular_contribution,
                 contributions_per_year=contributions_per_year,
                 years=years,
             )
-        )
-        error = np.abs(final_balance - final_balances[-1])
-        if error < 1e-3:
+        error = np.abs(final_balance - K_final)
+        if error < 1e-2:
             return r, error
     else:
-        errors = np.abs(final_balance - np.array(final_balances))
-        argmin = np.argmin(errors)
-        print(
-            "ci_to_rate(): Did not find a suitable interest rate. "
-            f"Returning closest match with balance error {errors[argmin]:.3f}."
+        # different attempt
+        r = root_scalar(poly, x0=1e-4, x1=0.1).root ** P - 1
+
+        K_final = ci_formula(
+            initial_balance=initial_balance,
+            annual_interest_rate=r,
+            regular_contribution=regular_contribution,
+            contributions_per_year=contributions_per_year,
+            years=years,
         )
-        return rates[argmin], errors[argmin]
+
+        error = np.abs(final_balance - K_final)
+        if error >= 1e-2:
+            print(
+               "ci_to_rate(): Did not find a suitable interest rate. "
+               f"Returning closest match with balance error {error:.3f}."
+            )
+        return r, error
 
 
 def rep(loan_balance, annual_interest_rate, regular_installment, installments_per_year):
@@ -445,7 +455,7 @@ def func1():
                 )
 
                 t_dict["etf contribution"].append(c)
-                if error < 1e-3:
+                if error < 1e-2:
                     t_dict["etf interest rate (%)"].append(f"{etf_rate * 100:2.1f}")
                 else:
                     t_dict["etf interest rate (%)"].append(

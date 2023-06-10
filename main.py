@@ -86,18 +86,29 @@ def ci_to_rate(
     R_roots = R_roots[R_roots.imag < 1e-10].real
     # potential interest rates
     rates = R_roots[R_roots > 1] - 1
-    for r in rates[::-1]:
-        K_NP_r = ci_formula(
-            initial_balance=initial_balance,
-            annual_interest_rate=r,
-            regular_contribution=regular_contribution,
-            contributions_per_year=contributions_per_year,
-            years=years,
+
+    final_balances = list()
+    for r in rates:
+        final_balances.append(
+            ci_formula(
+                initial_balance=initial_balance,
+                annual_interest_rate=r,
+                regular_contribution=regular_contribution,
+                contributions_per_year=contributions_per_year,
+                years=years,
+            )
         )
-        if np.abs(final_balance - K_NP_r) < 1e-3:
-            return r
+        error = np.abs(final_balance - final_balances[-1])
+        if error < 1e-3:
+            return r, error
     else:
-        print("ci_to_rate(): Did not find a suitable interest rate.")
+        errors = np.abs(final_balance - np.array(final_balances))
+        argmin = np.argmin(errors)
+        print(
+            "ci_to_rate(): Did not find a suitable interest rate. "
+            f"Returning closest match with balance error {errors[argmin]:.3f}."
+        )
+        return rates[argmin], errors[argmin]
 
 
 def rep(loan_balance, annual_interest_rate, regular_installment, installments_per_year):
@@ -195,8 +206,10 @@ def test():
         regular_contribution=regular_contribution,
         contributions_per_year=contributions_per_year,
         years=years,
-    )
-    assert abs(r - annual_interest_rate) < 1e-5, "Computed interest rate is not correct."
+    )[0]
+    assert (
+        abs(r - annual_interest_rate) < 1e-5
+    ), "Computed interest rate is not correct."
 
 
 def repay():
@@ -382,12 +395,77 @@ def house_growth():
     plt.close()
 
 
+def func1():
+    """
+    Assuming a house's value grows for 25 years with a given annual interest
+    rate, what ETF interest rate is needed to reach a comparable final balance.
+    """
+    annual_interest_rates = [0.01 * x for x in range(1, 11)]
+    initial_house_values = [500_000, 600_000, 700_000, 800_000]
+
+    regular_etf_contributions = [2_000, 2_500, 3_000, 3_500]
+
+    filename = "house_growth_vs_etf_interest_rate"
+
+    t_dict = {
+        "initial house value (k€)": list(),
+        "house interest rate (%)": list(),
+        "final house value (k€)": list(),
+        "etf contribution": list(),
+        "etf interest rate (%)": list(),
+    }
+
+    for c in regular_etf_contributions:
+        for v in initial_house_values:
+            for p in annual_interest_rates:
+                #
+                # house
+                #
+                final_house_value = ci_formula(
+                    initial_balance=v,
+                    annual_interest_rate=p,
+                    regular_contribution=0,
+                    contributions_per_year=1,
+                    years=25,
+                )
+
+                t_dict["initial house value (k€)"].append(v / 1e3)
+                t_dict["house interest rate (%)"].append(f"{p * 100:2.1f}")
+                t_dict["final house value (k€)"].append(final_house_value / 1e3)
+
+                #
+                # ETF
+                #
+                etf_rate, error = ci_to_rate(
+                    initial_balance=100_000,
+                    final_balance=final_house_value,
+                    regular_contribution=c,
+                    contributions_per_year=12,
+                    years=25,
+                )
+
+                t_dict["etf contribution"].append(c)
+                if error < 1e-3:
+                    t_dict["etf interest rate (%)"].append(f"{etf_rate * 100:2.1f}")
+                else:
+                    t_dict["etf interest rate (%)"].append(
+                        f"{etf_rate * 100:2.5f} (err: {error / 1e3:.2e} k€)"
+                    )
+
+    # for table
+    with open(filename + ".txt", "w", encoding="utf8") as f:
+        df = pd.DataFrame(t_dict)
+        table = tabulate(df, headers="keys", tablefmt="psql", showindex=False)
+        f.write(table)
+
+
 def main():
     # repay()
-    etf_growth()
-    house_growth()
+    # etf_growth()
+    # house_growth()
+    func1()
 
 
 if __name__ == "__main__":
     test()
-    # main()
+    main()

@@ -27,18 +27,18 @@ python main.py
 # Formulas
 ## Compound interest
 
-$ K_0 $: initial balance,
-$ K_l $: balance after $ l $ contributions,
-$ r $: annual interest rate,
-$ m $: regular contribution,
-$ P $: contributions per year,
-$ N $: years,
-$ K_{NP} $: final balance
+$K_0$: initial balance,
+$K_l$: balance after $l$ contributions,
+$r$: annual interest rate,
+$m$: regular contribution,
+$P$: contributions per year,
+$N$: years,
+$K_{NP}$: final balance
 
 We convert the annual interest rate to an interest rate per contribution period:
-$$
+```math
     r_P = (1 + r)^{\frac{1}{P}}.
-$$
+```
 
 The balance after $ l $ contribution periods is
 $$

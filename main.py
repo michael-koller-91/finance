@@ -1,10 +1,12 @@
+import numpy as np
 import pandas as pd
 from tabulate import tabulate
 from matplotlib import pyplot as plt
+from numpy.polynomial.polynomial import Polynomial
 
 
 def ci(
-    initial_investment,
+    initial_balance,
     annual_interest_rate,
     regular_contribution,
     contributions_per_year,
@@ -22,7 +24,7 @@ def ci(
     Reference:
         https://www.calculator.net/investment-calculator.html
     """
-    balance = initial_investment
+    balance = initial_balance
     balance_after_each_contribution = [balance]
     # convert annual interest rate to interest rate per contribution time interval (+ 1)
     if contributions_per_year > 0:
@@ -38,6 +40,64 @@ def ci(
 
             balance_after_each_contribution.append(balance)
     return balance, balance_after_each_contribution
+
+
+def ci_formula(
+    initial_balance,
+    annual_interest_rate,
+    regular_contribution,
+    contributions_per_year,
+    years,
+):
+    K_0 = initial_balance
+    r = annual_interest_rate
+    m = regular_contribution
+    P = contributions_per_year
+    N = years
+
+    R = 1 + r
+    return K_0 * R**N + m * (1 - R**N) / (1 - R ** (1 / P))
+
+
+def ci_to_rate(
+    initial_balance,
+    final_balance,
+    regular_contribution,
+    contributions_per_year,
+    years,
+):
+    K_0 = initial_balance
+    K_NP = final_balance
+    m = regular_contribution
+    P = contributions_per_year
+    N = years
+
+    # polynomial in S
+    coef = np.zeros(N * P + 2)
+    coef[0] = m - K_NP
+    coef[1] = K_NP
+    coef[N * P] = K_0 - m
+    coef[N * P + 1] = -K_0
+    poly = Polynomial(coef)
+
+    # R = S^P
+    R_roots = poly.roots() ** P
+    # real roots
+    R_roots = R_roots[R_roots.imag < 1e-10].real
+    # potential interest rates
+    rates = R_roots[R_roots > 1] - 1
+    for r in rates[::-1]:
+        K_NP_r = ci_formula(
+            initial_balance=initial_balance,
+            annual_interest_rate=r,
+            regular_contribution=regular_contribution,
+            contributions_per_year=contributions_per_year,
+            years=years,
+        )
+        if np.abs(final_balance - K_NP_r) < 1e-3:
+            return r
+    else:
+        print("ci_to_rate(): Did not find a suitable interest rate.")
 
 
 def rep(loan_balance, annual_interest_rate, regular_installment, installments_per_year):
@@ -73,17 +133,35 @@ def rep(loan_balance, annual_interest_rate, regular_installment, installments_pe
 
 def test():
     """
-    Compare to reference.
+    Small unit tests.
     """
-    balance = ci(
-        initial_investment=5_000,
+    #
+    # compare compound interest to reference
+    #
+    b0 = ci(
+        initial_balance=5_000,
+        annual_interest_rate=0.03,
+        regular_contribution=100,
+        contributions_per_year=12,
+        years=5,
+    )[0]
+    assert abs(b0 - 12_254.47) < 0.01, "Compound interest is not correct."
+
+    #
+    # check compound interest formula
+    #
+    b1 = ci_formula(
+        initial_balance=5_000,
         annual_interest_rate=0.03,
         regular_contribution=100,
         contributions_per_year=12,
         years=5,
     )
-    assert abs(balance[0] - 12_254.47) < 0.01, "Compound interest is not correct."
+    assert abs(b1 - 12_254.47) < 0.01, "Compound interest (formula) is not correct."
 
+    #
+    # compare repayment to formula
+    #
     months = rep(
         loan_balance=10_000,
         annual_interest_rate=0.1,
@@ -91,6 +169,34 @@ def test():
         installments_per_year=12,
     )
     assert abs(months[0] - (5 * 12 + 5)) < 0.1, "Repayment is not correct."
+
+    #
+    # test conversion from compound interest to rate
+    #
+    initial_balance = 5_000
+    annual_interest_rate = 0.03521
+    regular_contribution = 100
+    contributions_per_year = 12
+    years = 5
+
+    # compute a final balance
+    K_NP = ci_formula(
+        initial_balance=initial_balance,
+        annual_interest_rate=annual_interest_rate,
+        regular_contribution=regular_contribution,
+        contributions_per_year=contributions_per_year,
+        years=years,
+    )
+
+    # find the corresponding interest rate
+    r = ci_to_rate(
+        initial_balance=initial_balance,
+        final_balance=K_NP,
+        regular_contribution=regular_contribution,
+        contributions_per_year=contributions_per_year,
+        years=years,
+    )
+    assert abs(r - annual_interest_rate) < 1e-5, "Computed interest rate is not correct."
 
 
 def repay():
@@ -143,7 +249,7 @@ def repay():
 
 def etf_growth():
     interest_rates = [0.05, 0.06, 0.065, 0.07, 0.075]
-    initial_investment = 100_000
+    initial_balance = 100_000
     regular_contributions = [2_000, 2_500, 3_000]
     contributions_per_year = 12
     years = 40
@@ -157,7 +263,7 @@ def etf_growth():
     for rate in interest_rates:
         for contribution in regular_contributions:
             y_axis = ci(
-                initial_investment=initial_investment,
+                initial_balance=initial_balance,
                 annual_interest_rate=rate,
                 regular_contribution=contribution,
                 contributions_per_year=contributions_per_year,
@@ -209,7 +315,7 @@ def etf_growth():
 
 def house_growth():
     interest_rates = [0.02, 0.03, 0.04, 0.05, 0.08]
-    initial_investments = [500_000, 650_000, 800_000]
+    initial_balances = [500_000, 650_000, 800_000]
     regular_contribution = 0
     contributions_per_year = 1
     years = 40
@@ -220,15 +326,15 @@ def house_growth():
     t_dict = {
         "year": list(),
         "rate": list(),
-        "initial_investment": list(),
+        "initial_balance": list(),
         "balance": list(),
     }
 
     fig, ax = plt.subplots(2, 1)
     for rate in interest_rates:
-        for initial_investment in initial_investments:
+        for initial_balance in initial_balances:
             y_axis = ci(
-                initial_investment=initial_investment,
+                initial_balance=initial_balance,
                 annual_interest_rate=rate,
                 regular_contribution=regular_contribution,
                 contributions_per_year=contributions_per_year,
@@ -241,19 +347,19 @@ def house_growth():
             # for table
             t_dict["year"].extend(x_axis)
             t_dict["rate"].extend([rate] * (years + 1))
-            t_dict["initial_investment"].extend([initial_investment] * (years + 1))
+            t_dict["initial_balance"].extend([initial_balance] * (years + 1))
             t_dict["balance"].extend(y_axis)
 
             # for plot
             ax[0].plot(
                 x_axis[:26],
                 y_axis[:26],
-                label=f"r = {rate * 100:.1f}%, p = {initial_investment / 1e3:.0f}k€",
+                label=f"r = {rate * 100:.1f}%, p = {initial_balance / 1e3:.0f}k€",
             )
             ax[1].plot(
                 x_axis[26:],
                 y_axis[26:],
-                label=f"r = {rate * 100:.1f}%, p = {initial_investment / 1e3:.0f}k€",
+                label=f"r = {rate * 100:.1f}%, p = {initial_balance / 1e3:.0f}k€",
             )
 
     # for table
@@ -284,4 +390,4 @@ def main():
 
 if __name__ == "__main__":
     test()
-    main()
+    # main()

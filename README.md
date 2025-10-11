@@ -17,6 +17,11 @@ python -m pip install -r requirements.txt
 ```
 That's it.
 
+## Running the unit tests
+```bash
+pytest -v
+```
+
 ## Running the main script
 Make sure the virtual environment `(.venv)` is active.
 Run

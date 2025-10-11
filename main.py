@@ -1,9 +1,8 @@
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
-from matplotlib import pyplot as plt
-from scipy.optimize import root_scalar
-from numpy.polynomial.polynomial import Polynomial
+import utils as ut
 
 
 def ci(
@@ -41,84 +40,6 @@ def ci(
 
             balance_after_each_contribution.append(balance)
     return balance, balance_after_each_contribution
-
-
-def ci_formula(
-    initial_balance: float,
-    annual_interest_rate: float,
-    regular_contribution: float,
-    contributions_per_year: int,
-    years: int,
-) -> float:
-    K_0 = initial_balance
-    r = annual_interest_rate
-    m = regular_contribution
-    P = contributions_per_year
-    N = years
-
-    R = 1 + r
-    return K_0 * R**N + m * (1 - R**N) / (1 - R ** (1 / P))
-
-
-def ci_to_rate(
-    initial_balance,
-    final_balance,
-    regular_contribution,
-    contributions_per_year,
-    years,
-):
-    K_0 = initial_balance
-    K_NP = final_balance
-    m = regular_contribution
-    P = contributions_per_year
-    N = years
-
-    # polynomial in S
-    coef = np.zeros(N * P + 2)
-    coef[0] = m - K_NP
-    coef[1] = K_NP
-    coef[N * P] = K_0 - m
-    coef[N * P + 1] = -K_0
-    poly = Polynomial(coef)
-
-    # R = S^P
-    R_roots = poly.roots() ** P
-    # real roots
-    R_roots = R_roots[R_roots.imag < 1e-10].real
-    # potential interest rates
-    rates = R_roots[R_roots > 1] - 1
-
-    # try to find a suitable root
-    for r in rates:
-        K_final = ci_formula(
-                initial_balance=initial_balance,
-                annual_interest_rate=r,
-                regular_contribution=regular_contribution,
-                contributions_per_year=contributions_per_year,
-                years=years,
-            )
-        error = np.abs(final_balance - K_final)
-        if error < 1e-2:
-            return r, error
-    else:
-        # different attempt
-        r = root_scalar(poly, x0=1e-4, x1=0.1).root ** P - 1
-
-        K_final = ci_formula(
-            initial_balance=initial_balance,
-            annual_interest_rate=r,
-            regular_contribution=regular_contribution,
-            contributions_per_year=contributions_per_year,
-            years=years,
-        )
-
-        error = np.abs(final_balance - K_final)
-        if error >= 1e-2:
-            print(
-               "ci_to_rate(): Did not find a suitable interest rate. "
-               f"Returning closest match with balance error {error:.3f}."
-            )
-        return r, error
 
 
 def rep(loan_balance, annual_interest_rate, regular_installment, installments_per_year):
@@ -171,7 +92,7 @@ def test():
     #
     # check compound interest formula
     #
-    b1 = ci_formula(
+    b1 = ut.compound_interest(
         initial_balance=5_000,
         annual_interest_rate=0.03,
         regular_contribution=100,
@@ -201,7 +122,7 @@ def test():
     years = 5
 
     # compute a final balance
-    K_NP = ci_formula(
+    K_NP = ut.compound_interest(
         initial_balance=initial_balance,
         annual_interest_rate=annual_interest_rate,
         regular_contribution=regular_contribution,
@@ -210,7 +131,7 @@ def test():
     )
 
     # find the corresponding interest rate
-    r = ci_to_rate(
+    r = ut.compound_interest_rate(
         initial_balance=initial_balance,
         final_balance=K_NP,
         regular_contribution=regular_contribution,
@@ -431,7 +352,7 @@ def func1():
                 #
                 # house
                 #
-                final_house_value = ci_formula(
+                final_house_value = ut.compound_interest(
                     initial_balance=v,
                     annual_interest_rate=p,
                     regular_contribution=0,
@@ -446,7 +367,7 @@ def func1():
                 #
                 # ETF
                 #
-                etf_rate, error = ci_to_rate(
+                etf_rate, error = ut.compound_interest_rate(
                     initial_balance=100_000,
                     final_balance=final_house_value,
                     regular_contribution=c,

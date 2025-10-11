@@ -1,3 +1,8 @@
+import numpy as np
+from numpy.polynomial.polynomial import Polynomial
+from scipy.optimize import root_scalar
+
+
 def annual_to_monthly(rate: float) -> float:
     """
     Convert an annual rate to a monthly rate.
@@ -5,24 +10,96 @@ def annual_to_monthly(rate: float) -> float:
     return (1 + rate) ** (1 / 12)
 
 
-def end_balance(
-    start_balance: float,
-    monthly_contribution: float,
-    years_to_grow: int,
-    annual_rate_of_return: float,
+def compound_interest(
+    initial_balance: float,
+    annual_interest_rate: float,
+    regular_contribution: float,
+    contributions_per_year: int,
+    years: int,
 ) -> float:
     """
-    The annual rate of return is converted into a monthly rate.
-    The contribution is invested at the beginning of each month
-    and the resulting total balance then grows at the end of every
-    month.
+    Grow the current balance according to the rate and then add the next contribution.
+
+    See README.md for a derivation.
     """
-    monthly_rate = annual_to_monthly(annual_rate_of_return)
-    v = start_balance
-    for _ in range(years_to_grow * 12):
-        v += monthly_contribution
-        v *= monthly_rate
-    return v
+    K_0 = initial_balance
+    r = annual_interest_rate
+    m = regular_contribution
+    P = contributions_per_year
+    N = years
+
+    R = 1 + r
+    if 1 - R ** (1 / P) == 0:
+        return K_0 + m * P * N
+    else:
+        return K_0 * R**N + m * (1 - R**N) / (1 - R ** (1 / P))
+
+
+def compound_interest_rate(
+    initial_balance: float,
+    final_balance: float,
+    regular_contribution: float,
+    contributions_per_year: int,
+    years: int,
+) -> tuple[float, float]:
+    """
+    The rate needed for `initial_balance` to grow to `final_balance` with the given
+    contributions and within the given number of years.
+
+    See README.md for a derivation.
+    """
+    K_0 = initial_balance
+    K_NP = final_balance
+    m = regular_contribution
+    P = contributions_per_year
+    N = years
+
+    # polynomial in S
+    coef = np.zeros(N * P + 2)
+    coef[0] = m - K_NP
+    coef[1] = K_NP
+    coef[N * P] = K_0 - m
+    coef[N * P + 1] = -K_0
+    poly = Polynomial(coef)
+
+    # R = S^P
+    R_roots = poly.roots() ** P
+    # real roots
+    R_roots = R_roots[R_roots.imag < 1e-10].real
+    # potential interest rates
+    rates = R_roots[R_roots > 1] - 1
+
+    # try to find a suitable root
+    for r in rates:
+        K_final = compound_interest(
+            initial_balance=initial_balance,
+            annual_interest_rate=r,
+            regular_contribution=regular_contribution,
+            contributions_per_year=contributions_per_year,
+            years=years,
+        )
+        error = np.abs(final_balance - K_final)
+        if error < 1e-2:
+            return r, error
+    else:
+        # different attempt
+        r = root_scalar(poly, x0=1e-4, x1=0.1).root ** P - 1
+
+        K_final = compound_interest(
+            initial_balance=initial_balance,
+            annual_interest_rate=r,
+            regular_contribution=regular_contribution,
+            contributions_per_year=contributions_per_year,
+            years=years,
+        )
+
+        error = np.abs(final_balance - K_final)
+        if error >= 1e-2:
+            print(
+                f"{compound_interest_rate.__name__}(): Did not find a suitable interest"
+                f" rate. Returning closest match with balance error {error:.3f}."
+            )
+        return r, error
 
 
 def monthly_purchasing_power(

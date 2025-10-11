@@ -63,7 +63,7 @@ Thus, the final balance is given by
     K_{NP} = K_0 (1 + r)^N + m \frac{1 - (1 + r)^N}{1 - (1 + r)^{\frac{1}{P}}}.
 ```
 Note that we already plugged in $r_P = (1 + r)^{\frac{1}{P}}$.
-The formula is implemented in `ci_formula`.
+The formula is implemented in `compound_interest`.
 
 ### Interest rate needed for a given final balance
 Using the abbreviation $R = 1 + r$, we get
@@ -83,4 +83,4 @@ From this, we derive a polynomial in $S = R^{\frac{1}{P}}$:
 As a result, finding the interest rate $\tilde{r}$ which leads to a given final balance $K_{NP}$
 amounts to finding a suitable root $\tilde{S}$ of the polynomial
 and computing $\tilde{r} = \tilde{S}^P - 1$.
-This is implemented in the function `ci_to_rate`.
+This is implemented in the function `compound_interest_rate`.

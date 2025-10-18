@@ -1,6 +1,6 @@
-import numpy as np
 from numpy.polynomial.polynomial import Polynomial
 from scipy.optimize import root_scalar
+import numpy as np
 
 
 def annual_to_monthly(rate: float) -> float:
@@ -124,6 +124,13 @@ def monthly_purchasing_power(
     for i in range(1, K + 1):
         rs_cum += monthly_inflation ** (K - i) * monthly_rate**i
     return start_balance * monthly_rate**K / rs_cum
+
+
+def subtract_gains_tax(x):
+    """
+    25% Kapitalertragssteuer
+    """
+    return x * 0.75
 
 
 def value_today(x: float, years: int, annual_rate_of_inflation: float) -> float:

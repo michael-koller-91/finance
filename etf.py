@@ -1,12 +1,13 @@
 from datetime import datetime
 from tabulate import tabulate
+from textwrap import dedent
 import pandas as pd
 import pytz
 import utils as ut
 
 
 consume_years = [20, 30, 40]
-contribution = 100
+contributions = [500, 1000, 2000, 2500, 3000]
 contributions_per_year = 12
 growth_years = [10, 20, 30]
 inflation = 0.03
@@ -14,60 +15,95 @@ rates = [0.05, 0.06, 0.07]
 start_balances = [0, 100_000, 200_000]
 
 t_dict = {
+    "contribution": list(),
     "start balance": list(),
     "rate": list(),
     "growth years": list(),
     "end balance": list(),
+    "net interest": list(),
+    "net interest (today)": list(),
     "consume years": list(),
-    "MPP after 25% tax": list(),
-    "MPP today": list(),
+    "net MPP": list(),
+    "net MPP (today)": list(),
 }
-for sb in start_balances:
-    for r in rates:
-        for gy in growth_years:
-            for cy in consume_years:
-                t_dict["start balance"].append(sb)
-                t_dict["rate"].append(r)
-                t_dict["growth years"].append(gy)
-                t_dict["consume years"].append(cy)
+for c in contributions:
+    for sb in start_balances:
+        for r in rates:
+            for gy in growth_years:
+                for cy in consume_years:
+                    t_dict["contribution"].append(c)
+                    t_dict["start balance"].append(sb)
+                    t_dict["rate"].append(r)
+                    t_dict["growth years"].append(gy)
+                    t_dict["consume years"].append(cy)
 
-                eb = ut.compound_interest(
-                    sb, r, contribution, contributions_per_year, gy
-                )
-                t_dict["end balance"].append(f"{eb:.1e}")
+                    eb = ut.compound_interest(
+                        initial_balance=sb,
+                        annual_interest_rate=r,
+                        regular_contribution=c,
+                        contributions_per_year=contributions_per_year,
+                        years=gy,
+                    )
+                    t_dict["end balance"].append(f"{eb:.1e}")
 
-                mpp = ut.monthly_purchasing_power(eb, cy, r, inflation)
+                    monthly_rate = ut.annual_to_monthly(r) - 1
+                    interest = eb * monthly_rate
+                    net_interest = ut.subtract_gains_tax(interest)
+                    t_dict["net interest"].append(f"{net_interest:.0f}")
 
-                mpp_net = ut.subtract_gains_tax(mpp)
-                t_dict["MPP after 25% tax"].append(f"{mpp_net:.0f}")
+                    net_interest_today = ut.value_today(
+                        x=net_interest, years=gy, annual_rate_of_inflation=inflation
+                    )
+                    t_dict["net interest (today)"].append(f"{net_interest_today:.0f}")
 
-                mpp_today = ut.value_today(mpp_net, gy, inflation)
-                t_dict["MPP today"].append(f"{mpp_today:.0f}")
+                    mpp = ut.monthly_purchasing_power(
+                        start_balance=eb,
+                        years_to_consume=cy,
+                        annual_rate_of_return=r,
+                        annual_rate_of_inflation=inflation,
+                    )
+
+                    net_mpp = ut.subtract_gains_tax(mpp)
+                    t_dict["net MPP"].append(f"{net_mpp:.0f}")
+
+                    net_mpp_today = ut.value_today(
+                        x=net_mpp, years=gy, annual_rate_of_inflation=inflation
+                    )
+                    t_dict["net MPP (today)"].append(f"{net_mpp_today:.0f}")
 
 
-with open("etf.txt", "w", encoding="utf8") as f:
+out_file = "etf.txt"
+with open(out_file, "w", encoding="utf8") as f:
     f.write(
-        f"Generated on {pytz.timezone('Europe/Berlin').localize(datetime.now()).ctime()} (timezone Berlin).\n\n"
+        dedent(
+            f"""
+            Generated on {pytz.timezone('Europe/Berlin').localize(datetime.now()).ctime()} (timezone Berlin).
+
+            The annual inflation rate is {inflation}.
+            Every "(today)" value takes a future value and computes its value today
+            by taking into account inflation and the number of growth years.
+            For example, with 0.03 annual inflation, a value of 100 € in 30 years
+            corresponds to {ut.value_today(100, 30, 0.03):.2f} € today.
+
+            There are monthly contributions during the growth years. There is no contribution during the consume years.
+
+            Net values are after 25% tax.
+
+            "interest" is the interest that the end balance generates in one month.
+
+            "MPP" is the monthly purchasing power.
+            That is, "MPP" is the value that can be spent in the first month of the consume years.
+            In every following month, MPP can be increased by an amount corresponding to the inflation rate.
+            At the end of the last consume year, the remaining balance will be zero.
+
+            """
+        )
     )
-    f.write(f"The monthly contribution is {contribution}.\n")
-    f.write(f"The annual inflation rate is {inflation}.\n")
-    f.write('"MPP" is the monthly purchasing power.\n')
-    f.write(
-        'That is, "MPP" is the value that can be spent in the first month of the consume years.\n'
-    )
-    f.write(
-        "In every following month, MPP can be increased by an amount corresponding to the inflation rate.\n"
-    )
-    f.write(
-        "At the end of the last consume year, the remaining balance will be zero.\n"
-    )
-    f.write(
-        """"MPP today" is today's "MPP" value taking into account inflation and the number of growth years.\n"""
-    )
-    f.write("\n")
 
     df = pd.DataFrame(t_dict)
     table = tabulate(
-        df, headers="keys", tablefmt="psql", showindex=False, disable_numparse=True
+        df, headers="keys", tablefmt="grid", showindex=False, disable_numparse=True
     )
     f.write(table)
+
+print(f"Generated {out_file}")

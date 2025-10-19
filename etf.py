@@ -12,7 +12,7 @@ contributions_per_year = 12
 growth_years = [10, 20, 30]
 inflation = 0.03
 rates = [0.05, 0.06, 0.07]
-start_balances = [0, 100_000, 200_000]
+start_balances = [0, 50_000, 100_000, 150_000, 200_000, 250_000, 300_000]
 
 t_dict = {
     "contribution": list(),

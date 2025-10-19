@@ -128,9 +128,9 @@ def monthly_purchasing_power(
 
 def subtract_gains_tax(x):
     """
-    25% Kapitalertragssteuer
+    25% Kapitalertragssteuer + Soli
     """
-    return x * 0.75
+    return x * (1 - 0.25 * 1.055)
 
 
 def value_today(x: float, years: int, annual_rate_of_inflation: float) -> float:

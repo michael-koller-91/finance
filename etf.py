@@ -32,7 +32,7 @@ for c in contributions:
             for gy in growth_years:
                 for cy in consume_years:
                     t_dict["contribution"].append(c)
-                    t_dict["start balance"].append(sb)
+                    t_dict["start balance"].append(f"{sb/1e3:.0f} k")
                     t_dict["rate"].append(r)
                     t_dict["growth years"].append(gy)
                     t_dict["consume years"].append(cy)
@@ -44,7 +44,7 @@ for c in contributions:
                         contributions_per_year=contributions_per_year,
                         years=gy,
                     )
-                    t_dict["end balance"].append(f"{eb:.1e}")
+                    t_dict["end balance"].append(f"{eb/1e3:.0f} k")
 
                     monthly_rate = ut.annual_to_monthly(r) - 1
                     interest = eb * monthly_rate

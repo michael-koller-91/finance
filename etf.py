@@ -7,12 +7,23 @@ import utils as ut
 
 
 consume_years = [20, 30, 40]
-contributions = [500, 1000, 2000, 2500, 3000]
+contributions = [0, 500, 1000, 1500, 2000, 2500, 3000]
 contributions_per_year = 12
 growth_years = [10, 20, 30]
 inflation = 0.03
 rates = [0.05, 0.06, 0.07]
-start_balances = [0, 50_000, 100_000, 150_000, 200_000, 250_000, 300_000]
+start_balances = [
+    0,
+    50_000,
+    100_000,
+    150_000,
+    200_000,
+    250_000,
+    300_000,
+    350_000,
+    400_000,
+    450_000,
+]
 
 t_dict = {
     "contribution": list(),
@@ -20,7 +31,7 @@ t_dict = {
     "rate": list(),
     "growth years": list(),
     "end balance": list(),
-    "net interest": list(),
+    # "net interest": list(),
     "net interest (today)": list(),
     "consume years": list(),
     "net MPP": list(),
@@ -49,7 +60,7 @@ for c in contributions:
                     monthly_rate = ut.annual_to_monthly(r) - 1
                     interest = eb * monthly_rate
                     net_interest = ut.subtract_gains_tax(interest)
-                    t_dict["net interest"].append(f"{net_interest:.0f}")
+                    # t_dict["net interest"].append(f"{net_interest:.0f}")
 
                     net_interest_today = ut.value_today(
                         x=net_interest, years=gy, annual_rate_of_inflation=inflation
@@ -87,7 +98,7 @@ with open(out_file, "w", encoding="utf8") as f:
 
             There are monthly contributions during the growth years. There is no contribution during the consume years.
 
-            Net values are after 25% tax.
+            Net values are after subtracting 0.25 * 1.055 tax.
 
             "interest" is the interest that the end balance generates in one month.
 
